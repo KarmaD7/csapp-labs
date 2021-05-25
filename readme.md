@@ -7,7 +7,7 @@ CMU15-213课程的编程作业，教材为《深入理解计算机系统》。
 ### Lecture
 
 - [x] Lecture 01  Course Overview
-- [ ] Lecture 02  Bits, Bytes, and Ints: Part 1
+- [x] Lecture 02  Bits, Bytes, and Ints: Part 1
 - [ ] Lecture 03  Bits, Bytes, and Ints: Part 2 
 - [ ] Lecture 04  Floating Point
 - [ ] Lecture 05  Machine Programming: Basics

@@ -143,7 +143,7 @@ NOTES:
  *   Rating: 1
  */
 int bitXor(int x, int y) {
-  return 2;
+  return ~(~(x & ~y) & ~(~x & y));
 }
 /* 
  * tmin - return minimum two's complement integer 
@@ -152,9 +152,7 @@ int bitXor(int x, int y) {
  *   Rating: 1
  */
 int tmin(void) {
-
-  return 2;
-
+  return 1 << 31;
 }
 //2
 /*
@@ -165,7 +163,14 @@ int tmin(void) {
  *   Rating: 1
  */
 int isTmax(int x) {
-  return 2;
+  int expected_minus_two = x + x; 
+  int not_minus_one = !!(x + 1);
+  int expected_zero = !(expected_minus_two + 2);
+  return not_minus_one & expected_zero;
+  // return 2;
+  // int expected_zero = expected_tmin << 1;
+  // int expected_one = expected_tmin >> 31;
+  // return (!expected_zero) & (expected_one);
 }
 /* 
  * allOddBits - return 1 if all odd-numbered bits in word set to 1
@@ -176,7 +181,20 @@ int isTmax(int x) {
  *   Rating: 2
  */
 int allOddBits(int x) {
+  int detecter = 0xAA;
+  int all_A = detecter | (detecter << 8) | (detecter << 16) | (detecter << 24); 
+  // x = x ^ detecter;
+  // detecter = detecter << 2;
+  // x = x ^ detecter;
+  // detecter = detecter << 2;
+  // x = x ^ detecter;
+  // detecter = detecter << 2;
+  // x = x ^ detecter;
+  // return !x;
+  // // detecter = detecter << 2;
+  return !((x & all_A) ^ (all_A));
   return 2;
+
 }
 /* 
  * negate - return -x 
@@ -186,7 +204,7 @@ int allOddBits(int x) {
  *   Rating: 2
  */
 int negate(int x) {
-  return 2;
+  return ~x + 1;
 }
 //3
 /* 
@@ -199,7 +217,14 @@ int negate(int x) {
  *   Rating: 3
  */
 int isAsciiDigit(int x) {
-  return 2;
+  int minus_x = ~x + 1;
+  int greater = minus_x + 0x2F;
+  int less = minus_x + 0x39;
+  int expected_one = greater >> 31;
+  int expected_zero = less >> 31;
+  return expected_one & !expected_zero;
+  // return 2;
+ 
 }
 /* 
  * conditional - same as x ? y : z 
@@ -209,7 +234,13 @@ int isAsciiDigit(int x) {
  *   Rating: 3
  */
 int conditional(int x, int y, int z) {
-  return 2;
+  int choose_z = !x;
+  int double_y = y + y;
+  int minus_y = ~y + 1;
+  int minus_z = ~z + 1;
+  int twoy_minus_z = double_y + minus_z;
+  int z_minus_y = z + minus_y;
+  return twoy_minus_z + ((z_minus_y) << choose_z);
 }
 /* 
  * isLessOrEqual - if x <= y  then return 1, else return 0 
@@ -219,7 +250,12 @@ int conditional(int x, int y, int z) {
  *   Rating: 3
  */
 int isLessOrEqual(int x, int y) {
-  return 2;
+  // return 1;
+  int may_overflow = (x >> 31) & !(y >> 31);
+  int not_underflow = !((!(x >> 31)) & (y >> 31));
+  int minus_x = ~x + 1;
+  int y_minus_x = y + minus_x;
+  return not_underflow & (!(y_minus_x >> 31) | may_overflow);
 }
 //4
 /* 
@@ -231,7 +267,8 @@ int isLessOrEqual(int x, int y) {
  *   Rating: 4 
  */
 int logicalNeg(int x) {
-  return 2;
+  int minus_x = ~x + 1;
+  return ((x | minus_x) >> 31) + 1;
 }
 /* howManyBits - return the minimum number of bits required to represent x in
  *             two's complement
