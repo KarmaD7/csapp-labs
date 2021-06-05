@@ -183,17 +183,8 @@ int isTmax(int x) {
 int allOddBits(int x) {
   int detecter = 0xAA;
   int all_A = detecter | (detecter << 8) | (detecter << 16) | (detecter << 24); 
-  // x = x ^ detecter;
-  // detecter = detecter << 2;
-  // x = x ^ detecter;
-  // detecter = detecter << 2;
-  // x = x ^ detecter;
-  // detecter = detecter << 2;
-  // x = x ^ detecter;
-  // return !x;
-  // // detecter = detecter << 2;
   return !((x & all_A) ^ (all_A));
-  return 2;
+  // return 2;
 
 }
 /* 
@@ -283,7 +274,34 @@ int logicalNeg(int x) {
  *  Rating: 4
  */
 int howManyBits(int x) {
-  return 0;
+  int cnt = 0;
+  int signal = (x >> 31);
+  // int count_left_one_x = (~x & signal) | (x & ~signal);
+  int nx = (~x & signal) | (x & ~signal);
+  int x_front = (nx >> 16);
+  int get_final_16 = (0xff << 8) | 0xff;
+  int x_last = (nx & get_final_16);
+  int smaller_than_16 = !x_front; //x的前16位均为0，则为1
+  int op = ~smaller_than_16 + 1; //前16位为0，则为-1
+  cnt += (16 & ~op); 
+  x = (x_last & op) | (x_front & ~op);
+  cnt += !!x; x >>= 1;
+  cnt += !!x; x >>= 1;
+  cnt += !!x; x >>= 1;
+  cnt += !!x; x >>= 1;
+  cnt += !!x; x >>= 1;
+  cnt += !!x; x >>= 1;
+  cnt += !!x; x >>= 1;
+  cnt += !!x; x >>= 1;
+  cnt += !!x; x >>= 1;
+  cnt += !!x; x >>= 1;
+  cnt += !!x; x >>= 1;
+  cnt += !!x; x >>= 1;
+  cnt += !!x; x >>= 1;
+  cnt += !!x; x >>= 1;
+  cnt += !!x; x >>= 1;
+  cnt += !!x; x >>= 1;
+  return cnt + 1;
 }
 //float
 /* 
@@ -298,7 +316,16 @@ int howManyBits(int x) {
  *   Rating: 4
  */
 unsigned floatScale2(unsigned uf) {
-  return 2;
+  unsigned norm_num = (uf & 0x7F800000) >> 23;
+  if (norm_num == 255) {
+    return uf;
+  } else if (norm_num > 0) {
+    norm_num += 1;
+    return (uf & 0x807fffff) | (norm_num << 23);
+  } else {
+    return (uf & 0xff000000) | ((uf << 9) >> 8);
+  }
+  return norm_num;
 }
 /* 
  * floatFloat2Int - Return bit-level equivalent of expression (int) f
@@ -313,7 +340,24 @@ unsigned floatScale2(unsigned uf) {
  *   Rating: 4
  */
 int floatFloat2Int(unsigned uf) {
-  return 2;
+  unsigned norm_num = (uf & 0x7F800000) >> 23;
+  unsigned real_value = (uf & 0x007fffff) | (0x00800000);
+  unsigned signal = (uf & 0x80000000) >> 31;
+  if (norm_num < 126) {
+    return 0;
+  } else {
+    if (norm_num < 151) {
+      real_value = real_value >> (150 - norm_num);
+    } else if (norm_num < 158) {
+      real_value = real_value << (norm_num - 150);
+    } else {
+      return 0x80000000u;
+    }
+    if (signal) {
+      return -real_value;
+    }
+    return real_value;
+  }
 }
 /* 
  * floatPower2 - Return bit-level equivalent of the expression 2.0^x
@@ -329,5 +373,13 @@ int floatFloat2Int(unsigned uf) {
  *   Rating: 4
  */
 unsigned floatPower2(int x) {
-    return 2;
+  if (x < -149) {
+    return 0;
+  } else if (x < -126) {
+    return 1 << (x + 149);
+  } else if (x < 128) {
+    return (x + 127) << 23;
+  } else {
+    return 0x7f800000;
+  }
 }
