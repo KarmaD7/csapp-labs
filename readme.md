@@ -36,7 +36,7 @@ CMU15-213课程的编程作业，教材为《深入理解计算机系统》。
 ### Lab
 
 - [x] data
-- [ ] bomb
+- [x] bomb
 - [ ] attack
 - [ ] cache
 - [ ] shell
