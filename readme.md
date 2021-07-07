@@ -37,7 +37,7 @@ CMU15-213课程的编程作业，教材为《深入理解计算机系统》。
 
 - [x] data
 - [x] bomb
-- [ ] attack
+- [x] attack
 - [ ] cache
 - [ ] shell
 - [ ] malloc
