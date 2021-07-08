@@ -15,9 +15,9 @@ CMU15-213课程的编程作业，教材为《深入理解计算机系统》。
 - [x] Lecture 07  Machine Programming: Procedures
 - [x] Lecture 08  Machine Programming: Data
 - [x] Lecture 09  Machine Programming: Advanced
-- [ ] Lecture 10  Code Optimization
-- [ ] Lecture 11  The Memory Hierarchy
-- [ ] Lecture 12  Cache Memories
+- [x] Lecture 10  Code Optimization
+- [x] Lecture 11  The Memory Hierarchy
+- [x] Lecture 12  Cache Memories
 - [ ] Lecture 13  Linking
 - [ ] Lecture 14  ECF: Exceptions & Processes
 - [ ] Lecture 15  ECF: Signals
