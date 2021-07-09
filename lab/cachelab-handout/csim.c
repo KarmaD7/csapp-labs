@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include "cachelab.h"
 #include <unistd.h>
 #include <getopt.h>
@@ -15,21 +16,98 @@ typedef struct line {
     int tag;
     int startpos;
     int last;
-} line;
+} block;
 
 void simulate(int s, int b, int E) {
-    line simulator[1 << s][E];
-    while (true) {
-        /* read from trace */
-        ;
-        break;
+    block simulator[1 << s][E];
+    // simulator[0][0].valid = false
+    for (int i = 0; i < (1 << s); ++i) {
+        for (int j = 0; j < E; ++j) {
+            simulator[i][j].valid = false;
+            simulator[i][j].tag = 0;
+            simulator[i][j].startpos = 0;
+            simulator[i][j].last = 0x7fffffff;
+        }
+    }
+    char line[128];
+    FILE* fp = fopen(filename, "r");
+    while (fgets(line, 127, fp)) {
+        // fgets(line, 127, fp);
+        
+        if (debug) {
+            printf("%s", line);
+        }
+        int pos = 0, i = 0;
+        while (line[pos] == ' ') pos++;
+        char opt = line[pos];
+        // printf("%c\n", opt);
+        if (opt == 'I') continue;
+        pos += 2;
+        // pos += 2;
+        long addr = 0;
+        while (line[pos] != ',') {
+            addr <<= 4;
+            addr += ('0' <= line[pos] && line[pos] <= '9') ? line[pos] - '0' : line[pos] - 'a' + 10;
+            ++pos;
+        }
+        // if (opt == 'I' || opt == 'L') {
+            // int b_offset = addr & (0xffffffff >> (32 - b));
+            int s_idx = (addr >> b) & (0xffffffff >> (32 - s));
+            int tag = addr >> (b + s);
+            block* l = simulator[s_idx];
+            for (i = 0; i < E; ++i) {
+                if (l[i].tag == tag && l[i].valid) {
+                    printf("hit ");
+                    hitCnt++;
+                    l[i].last = turn++;
+                    break;
+                }
+            }
+            if (i == E) {
+                // write
+                missCnt++;
+                printf("miss ");
+                int oldest_idx = 0;
+                for (i = 0; i < E; ++i) {
+                    if (!l[i].valid) {
+                        l[i].valid = true;
+                        l[i].tag = tag;
+                        l[i].last = turn++; 
+                        break;  
+                    }
+                    if (l[i].last < l[oldest_idx].last) {
+                        oldest_idx = i;
+                    }
+                }
+                if (i == E) {
+                    printf("eviction ");
+                    evictCnt++;
+                    l[oldest_idx].tag = tag; 
+                }
+            }
+            if (opt == 'M') {
+                hitCnt++;
+                printf("hit ");
+            }
+            printf("\n");
+            // read from xc
+        // } else if (opt == 'M') {
+        //     // return;
+        // } else if (opt == 'S') {
+        //     // return;
+        // }
+        // if 
+
+        // if 
+        // /* read from trace */
+        // ;
     }
 }
 
 int main(int argc, char* argv[]) {
     char opt;
     int b, E, s;
-    while ((opt = getopt(argc, argv, "v:s:E:b:t")) != -1) {
+    while ((opt = getopt(argc, argv, "s:E:b:t:v")) != -1) {
         switch (opt) {
             case 'v':
                 /* code */
@@ -45,7 +123,10 @@ int main(int argc, char* argv[]) {
                 b = atoi(optarg);
                 break;
             case 't':
+                // printf("here\n");
+                // printf("%s\n", optarg);
                 filename = optarg;
+                // printf("%s\n", filename);
                 break;
             default:
                 break;
