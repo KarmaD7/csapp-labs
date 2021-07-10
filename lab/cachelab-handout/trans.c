@@ -23,8 +23,8 @@ char transpose_submit_desc[] = "Transpose submission";
 void transpose_submit(int M, int N, int A[N][M], int B[M][N])
 {
     int i, j;
-    int diag1, diag2, diag3, diag4, diag5, diag6, diag7, diag8;
     // if (M == 32 && N == 32) {
+    int diag1, diag2, diag3, diag4, diag5, diag6, diag7, diag8;
     if (M == 32 && N == 32) {
         for (i = 0; i < M; i += 8) {
             for (j = 0; j < N; j += 8) {
@@ -56,9 +56,27 @@ void transpose_submit(int M, int N, int A[N][M], int B[M][N])
             }
         }
     } else if (M == 64 && N == 64) {
+        for (i = 0; i < 64; i += 8) {
+            for (j = 0; j < 32; j += 4) {
 
+                for (int ii = i; ii < i + 8; ++ii) {
+                    for (int jj = j; jj < j + 4; ++jj) {
+                        B[ii][jj] = A[jj][ii];
+                        B[ii][jj + 32] = A[jj + 32][ii];
+                    }
+                }
+            }
+        }
     } else if (M == 61 && N == 67) {
-        
+        for (i = 0; i < M; i += 16) {
+            for (j = 0; j < N; j += 15) {
+                for (int ii = i; ii < i + 16 && ii < M;  ++ii) {
+                    for (int jj = j; jj < j + 15 && jj < N; ++jj) {
+                        B[ii][jj] = A[jj][ii];
+                    }
+                }
+            }
+        }
     }
 }
 
