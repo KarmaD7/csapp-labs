@@ -22,6 +22,44 @@ int is_transpose(int M, int N, int A[N][M], int B[M][N]);
 char transpose_submit_desc[] = "Transpose submission";
 void transpose_submit(int M, int N, int A[N][M], int B[M][N])
 {
+    int i, j;
+    int diag1, diag2, diag3, diag4, diag5, diag6, diag7, diag8;
+    // if (M == 32 && N == 32) {
+    if (M == 32 && N == 32) {
+        for (i = 0; i < M; i += 8) {
+            for (j = 0; j < N; j += 8) {
+                if (i == j) {
+                    diag1 = A[i][j];
+                    diag2 = A[i + 1][j + 1];
+                    diag3 = A[i + 2][j + 2];
+                    diag4 = A[i + 3][j + 3];
+                    diag5 = A[i + 4][j + 4];
+                    diag6 = A[i + 5][j + 5];
+                    diag7 = A[i + 6][j + 6];
+                    diag8 = A[i + 7][j + 7];
+                }
+                for (int ii = i; ii < i + 8; ++ii) {
+                    for (int jj = j; jj < j + 8; ++jj) {
+                        if (ii == jj) {
+                            if (ii - i == 0) B[ii][ii] = diag1;
+                            if (ii - i == 1) B[ii][ii] = diag2;
+                            if (ii - i == 2) B[ii][ii] = diag3;
+                            if (ii - i == 3) B[ii][ii] = diag4;
+                            if (ii - i == 4) B[ii][ii] = diag5;
+                            if (ii - i == 5) B[ii][ii] = diag6;
+                            if (ii - i == 6) B[ii][ii] = diag7;
+                            if (ii - i == 7) B[ii][ii] = diag8;
+                        }
+                        else B[ii][jj] = A[jj][ii];
+                    }
+                }
+            }
+        }
+    } else if (M == 64 && N == 64) {
+
+    } else if (M == 61 && N == 67) {
+        
+    }
 }
 
 /* 
