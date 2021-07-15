@@ -19,9 +19,9 @@ CMU15-213课程的编程作业，教材为《深入理解计算机系统》。
 - [x] Lecture 11  The Memory Hierarchy
 - [x] Lecture 12  Cache Memories
 - [x] Lecture 13  Linking
-- [ ] Lecture 14  ECF: Exceptions & Processes
-- [ ] Lecture 15  ECF: Signals
-- [ ] Lecture 16  System Level IO
+- [x] Lecture 14  ECF: Exceptions & Processes
+- [x] Lecture 15  ECF: Signals
+- [x] Lecture 16  System Level IO
 - [ ] Lecture 17  Virtual Memory: Concepts
 - [ ] Lecture 18  Virtual Memory: Systems
 - [ ] Lecture 19  Storage Allocation: Basic
