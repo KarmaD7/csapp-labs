@@ -12,6 +12,7 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <errno.h>
+#include "csapp.h"
 
 /* Misc manifest constants */
 #define MAXLINE    1024   /* max line size */
@@ -165,6 +166,8 @@ int main(int argc, char **argv)
 */
 void eval(char *cmdline) 
 {
+    char** argv;
+
     return;
 }
 
@@ -231,6 +234,15 @@ int parseline(const char *cmdline, char **argv)
  */
 int builtin_cmd(char **argv) 
 {
+    if (!strcmp(argv[0], "exit")) {
+        exit(0);
+    } else if (!strcmp(argv[0], "jobs")) {
+
+    } else if (!strcmp(argv[0], "fg")) {
+        
+    } else if (!strcmp(argv[0], "bg")) {
+        
+    }
     return 0;     /* not a builtin command */
 }
 
@@ -247,6 +259,7 @@ void do_bgfg(char **argv)
  */
 void waitfg(pid_t pid)
 {
+    
     return;
 }
 
@@ -263,6 +276,8 @@ void waitfg(pid_t pid)
  */
 void sigchld_handler(int sig) 
 {
+    while(waitpid(-1, NULL, ) < 0) 
+
     return;
 }
 
