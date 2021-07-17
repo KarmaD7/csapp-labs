@@ -85,6 +85,7 @@ void unix_error(char *msg);
 void app_error(char *msg);
 typedef void handler_t(int);
 handler_t *Signal(int signum, handler_t *handler);
+pid_t Fork();
 
 /*
  * main - The shell's main routine 
@@ -166,7 +167,22 @@ int main(int argc, char **argv)
 */
 void eval(char *cmdline) 
 {
-    char** argv;
+    char* argv[MAXARGS];
+    pid_t pid;
+    int bg = parseline(cmdline, argv);
+    if (argv[0] == NULL) return;
+    if (!builtin_cmd(argv)) {
+        if ((pid = Fork()) == 0) {
+            if (execve(argv[0], argv, environ)) {
+                
+            }
+        }
+        else if (!bg) {
+            int status;
+            Waitpid(pid, &status, 0);
+        }
+    }
+
 
     return;
 }
@@ -259,7 +275,7 @@ void do_bgfg(char **argv)
  */
 void waitfg(pid_t pid)
 {
-    
+    Waitpid(pid)
     return;
 }
 
@@ -276,7 +292,7 @@ void waitfg(pid_t pid)
  */
 void sigchld_handler(int sig) 
 {
-    while(waitpid(-1, NULL, ) < 0) 
+    while(waitpid(-1, NULL, 0) < 0);
 
     return;
 }
@@ -288,6 +304,10 @@ void sigchld_handler(int sig)
  */
 void sigint_handler(int sig) 
 {
+    int olderrno = errno;
+    pid_t pid = fgpid(jobs);
+    kill(pid, SIGINT);
+    errno = olderrno;
     return;
 }
 
@@ -298,6 +318,10 @@ void sigint_handler(int sig)
  */
 void sigtstp_handler(int sig) 
 {
+    int olderrno = errno;
+    pid_t pid = fgpid(jobs);
+    kill(pid, SIGTSTP);
+    errno = olderrno;
     return;
 }
 
@@ -520,5 +544,13 @@ void sigquit_handler(int sig)
     exit(1);
 }
 
+pid_t Fork() {
+    pid_t pid;
+    if ((pid = fork()) < 0) {
+        printf("Fork error.\n");
+        exit(1);
+    }
+    return pid;
+}
 
 
