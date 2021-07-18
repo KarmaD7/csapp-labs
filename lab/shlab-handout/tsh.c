@@ -41,6 +41,7 @@ char prompt[] = "tsh> ";    /* command line prompt (DO NOT CHANGE) */
 int verbose = 0;            /* if true, print additional output */
 int nextjid = 1;            /* next job ID to allocate */
 char sbuf[MAXLINE];         /* for composing sprintf messages */
+pid_t wait_pid = 0;
 
 struct job_t {              /* The job struct */
     pid_t pid;              /* job PID */
@@ -178,14 +179,22 @@ void eval(char *cmdline)
     char* argv[MAXARGS];
     pid_t pid;
     int bg = parseline(cmdline, argv);
+    sigset_t mask_all, mask_child, prev_mask;
+    sigfillset(&mask_all);
+
     if (argv[0] == NULL) return;
     if (!builtin_cmd(argv)) {
 
+        sigprocmask(SIG_BLOCK, &mask_all, &prev_mask);
         if ((pid = Fork()) == 0) {
+            sigprocmask(SIG_SETMASK, &prev_mask, NULL);
             if (execve(argv[0], argv, environ) < 0) {
-                unix_error("Execve error");
+                Sio_error("Execve error");
             }
         }
+
+        addjob(jobs, pid, bg ? BG : FG, cmdline);
+        sigprocmask(SIG_SETMASK, &prev_mask, NULL);
 
         if (!bg) {
             waitfg(pid);
@@ -264,7 +273,7 @@ int builtin_cmd(char **argv)
     if (!strcmp(argv[0], "exit")) {
         exit(0);
     } else if (!strcmp(argv[0], "jobs")) {
-
+        return 0; // todo
     } else if (!strcmp(argv[0], "fg") || !strcmp(argv[0], "bg")) {
         do_bgfg(argv);
     } 
@@ -276,6 +285,8 @@ int builtin_cmd(char **argv)
  */
 void do_bgfg(char **argv) 
 {
+    int opt = argv[0][0] == 'f' ? FG : BG;
+    // todo
     return;
 }
 
@@ -285,13 +296,18 @@ void do_bgfg(char **argv)
 void waitfg(pid_t pid)
 {
     int status;
-    sigset_t mask, prev_mask;
-    sigfillset(&mask);
+    sigset_t mask_all, prev_mask;
+    sigfillset(&mask_all);
+    // sigemptyset(&mask_child);
+    // sigaddset(&mask_child, SIGCHLD);
     // sigprocmask()
     // sigsetmask();
+// ÷
+    sigprocmask(SIG_BLOCK, &mask_all, &prev_mask);
     if (waitpid(pid, &status, 0) < 0) {
-        unix_error("Waitpid error");
+        Sio_error("Waitpid error");
     }
+    sigprocmask(SIG_SETMASK, &prev_mask, NULL);
     return;
 }
 
@@ -309,8 +325,17 @@ void waitfg(pid_t pid)
 void sigchld_handler(int sig) 
 {
     int olderrno = errno;
-    // sigset_t 
-    // while(waitpid(-1, NULL, 0) < 0);
+    pid_t pid;
+    sigset_t mask_all, prev_mask;
+    sigfillset(&mask_all);
+    while((pid = waitpid(-1, NULL, 0)) < 0) {
+        sigprocmask(SIG_BLOCK, &mask_all, &prev_mask);
+        deletejob(jobs, pid);
+        sigprocmask(SIG_SETMASK, &prev_mask, NULL);
+    }
+    if (errno != ECHILD) {
+        Sio_error("Waitpid error");
+    }
     errno = olderrno;
     return;
 }
@@ -325,7 +350,7 @@ void sigint_handler(int sig)
     int olderrno = errno;
     pid_t pid = fgpid(jobs);
     if (kill(pid, SIGINT) < 0) {
-        unix_error("Kill error");
+        Sio_error("Kill error");
     }
     errno = olderrno;
     return;
@@ -341,7 +366,7 @@ void sigtstp_handler(int sig)
     int olderrno = errno;
     pid_t pid = fgpid(jobs);
     if (kill(pid, SIGTSTP) < 0){
-        unix_error("Kill error");
+        Sio_error("Kill error");
     }
     errno = olderrno;
     return;
