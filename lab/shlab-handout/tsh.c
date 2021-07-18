@@ -12,7 +12,6 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <errno.h>
-#include "csapp.h"
 
 /* Misc manifest constants */
 #define MAXLINE    1024   /* max line size */
@@ -86,6 +85,15 @@ void app_error(char *msg);
 typedef void handler_t(int);
 handler_t *Signal(int signum, handler_t *handler);
 pid_t Fork();
+/* Sio (Signal-safe I/O) routines */
+ssize_t sio_puts(char s[]);
+ssize_t sio_putl(long v);
+void sio_error(char s[]);
+
+/* Sio wrappers */
+ssize_t Sio_puts(char s[]);
+ssize_t Sio_putl(long v);
+void Sio_error(char s[]);
 
 /*
  * main - The shell's main routine 
@@ -172,18 +180,21 @@ void eval(char *cmdline)
     int bg = parseline(cmdline, argv);
     if (argv[0] == NULL) return;
     if (!builtin_cmd(argv)) {
+
         if ((pid = Fork()) == 0) {
-            if (execve(argv[0], argv, environ)) {
-                
+            if (execve(argv[0], argv, environ) < 0) {
+                unix_error("Execve error");
             }
         }
-        else if (!bg) {
-            int status;
-            Waitpid(pid, &status, 0);
+
+        if (!bg) {
+            waitfg(pid);
+            // int status;
+            // if (waitpid(pid, &status, 0) < 0) {
+            //     unix_error("Waitpid error");
+            // }
         }
     }
-
-
     return;
 }
 
@@ -254,11 +265,9 @@ int builtin_cmd(char **argv)
         exit(0);
     } else if (!strcmp(argv[0], "jobs")) {
 
-    } else if (!strcmp(argv[0], "fg")) {
-        
-    } else if (!strcmp(argv[0], "bg")) {
-        
-    }
+    } else if (!strcmp(argv[0], "fg") || !strcmp(argv[0], "bg")) {
+        do_bgfg(argv);
+    } 
     return 0;     /* not a builtin command */
 }
 
@@ -275,7 +284,14 @@ void do_bgfg(char **argv)
  */
 void waitfg(pid_t pid)
 {
-    Waitpid(pid)
+    int status;
+    sigset_t mask, prev_mask;
+    sigfillset(&mask);
+    // sigprocmask()
+    // sigsetmask();
+    if (waitpid(pid, &status, 0) < 0) {
+        unix_error("Waitpid error");
+    }
     return;
 }
 
@@ -292,8 +308,10 @@ void waitfg(pid_t pid)
  */
 void sigchld_handler(int sig) 
 {
-    while(waitpid(-1, NULL, 0) < 0);
-
+    int olderrno = errno;
+    // sigset_t 
+    // while(waitpid(-1, NULL, 0) < 0);
+    errno = olderrno;
     return;
 }
 
@@ -306,7 +324,9 @@ void sigint_handler(int sig)
 {
     int olderrno = errno;
     pid_t pid = fgpid(jobs);
-    kill(pid, SIGINT);
+    if (kill(pid, SIGINT) < 0) {
+        unix_error("Kill error");
+    }
     errno = olderrno;
     return;
 }
@@ -320,7 +340,9 @@ void sigtstp_handler(int sig)
 {
     int olderrno = errno;
     pid_t pid = fgpid(jobs);
-    kill(pid, SIGTSTP);
+    if (kill(pid, SIGTSTP) < 0){
+        unix_error("Kill error");
+    }
     errno = olderrno;
     return;
 }
@@ -553,4 +575,53 @@ pid_t Fork() {
     return pid;
 }
 
+/* $end sioprivate */
 
+/* Public Sio functions */
+/* $begin siopublic */
+
+ssize_t sio_puts(char s[]) /* Put string */
+{
+    return write(STDOUT_FILENO, s, sio_strlen(s)); //line:csapp:siostrlen
+}
+
+ssize_t sio_putl(long v) /* Put long */
+{
+    char s[128];
+    
+    sio_ltoa(v, s, 10); /* Based on K&R itoa() */  //line:csapp:sioltoa
+    return sio_puts(s);
+}
+
+void sio_error(char s[]) /* Put error message and exit */
+{
+    sio_puts(s);
+    _exit(1);                                      //line:csapp:sioexit
+}
+/* $end siopublic */
+
+/*******************************
+ * Wrappers for the SIO routines
+ ******************************/
+ssize_t Sio_putl(long v)
+{
+    ssize_t n;
+  
+    if ((n = sio_putl(v)) < 0)
+	sio_error("Sio_putl error");
+    return n;
+}
+
+ssize_t Sio_puts(char s[])
+{
+    ssize_t n;
+  
+    if ((n = sio_puts(s)) < 0)
+	sio_error("Sio_puts error");
+    return n;
+}
+
+void Sio_error(char s[])
+{
+    sio_error(s);
+}
