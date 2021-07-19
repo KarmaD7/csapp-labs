@@ -87,14 +87,14 @@ typedef void handler_t(int);
 handler_t *Signal(int signum, handler_t *handler);
 pid_t Fork();
 /* Sio (Signal-safe I/O) routines */
-ssize_t sio_puts(char s[]);
-ssize_t sio_putl(long v);
-void sio_error(char s[]);
+// ssize_t sio_puts(char s[]);
+// ssize_t sio_putl(long v);
+// void sio_error(char s[]);
 
-/* Sio wrappers */
-ssize_t Sio_puts(char s[]);
-ssize_t Sio_putl(long v);
-void Sio_error(char s[]);
+// /* Sio wrappers */
+// ssize_t Sio_puts(char s[]);
+// ssize_t Sio_putl(long v);
+// void Sio_error(char s[]);
 
 /*
  * main - The shell's main routine 
@@ -181,27 +181,37 @@ void eval(char *cmdline)
     int bg = parseline(cmdline, argv);
     sigset_t mask_all, mask_child, prev_mask;
     sigfillset(&mask_all);
+    sigemptyset(&mask_child);
+    sigaddset(&mask_child, SIGCHLD);
 
     if (argv[0] == NULL) return;
     if (!builtin_cmd(argv)) {
 
-        sigprocmask(SIG_BLOCK, &mask_all, &prev_mask);
+        sigprocmask(SIG_BLOCK, &mask_child, &prev_mask);
         if ((pid = Fork()) == 0) {
             sigprocmask(SIG_SETMASK, &prev_mask, NULL);
-            if (execve(argv[0], argv, environ) < 0) {
-                Sio_error("Execve error");
+            if (setpgid(0, 0) < 0) {
+                unix_error("Setpgid error");
+                exit(1);
             }
-        }
+            if (execve(argv[0], argv, environ) < 0) {
+                printf("%s: Command not found.\n", argv[0]);
+                return;
+            }
+        } else {
+            sigprocmask(SIG_BLOCK, &mask_all, NULL);
+            addjob(jobs, pid, bg ? BG : FG, cmdline);
+            sigprocmask(SIG_SETMASK, &prev_mask, NULL);
 
-        addjob(jobs, pid, bg ? BG : FG, cmdline);
-        sigprocmask(SIG_SETMASK, &prev_mask, NULL);
-
-        if (!bg) {
-            waitfg(pid);
-            // int status;
-            // if (waitpid(pid, &status, 0) < 0) {
-            //     unix_error("Waitpid error");
-            // }
+            if (!bg) {
+                waitfg(pid);
+                // int status;
+                // if (waitpid(pid, &status, 0) < 0) {
+                //     unix_error("Waitpid error");
+                // }
+            } else {
+                printf("\[%d] %d %s", nextjid - 1, pid, cmdline);
+            }
         }
     }
     return;
@@ -270,12 +280,15 @@ int parseline(const char *cmdline, char **argv)
  */
 int builtin_cmd(char **argv) 
 {
-    if (!strcmp(argv[0], "exit")) {
+    if (!strcmp(argv[0], "quit")) {
         exit(0);
+        return 1;
     } else if (!strcmp(argv[0], "jobs")) {
-        return 0; // todo
+        listjobs(jobs); // todo
+        return 1;
     } else if (!strcmp(argv[0], "fg") || !strcmp(argv[0], "bg")) {
         do_bgfg(argv);
+        return 1;
     } 
     return 0;     /* not a builtin command */
 }
@@ -295,19 +308,22 @@ void do_bgfg(char **argv)
  */
 void waitfg(pid_t pid)
 {
-    int status;
-    sigset_t mask_all, prev_mask;
+    // int status;
+    sigset_t mask_all;
     sigfillset(&mask_all);
     // sigemptyset(&mask_child);
     // sigaddset(&mask_child, SIGCHLD);
     // sigprocmask()
     // sigsetmask();
 // ÷
-    sigprocmask(SIG_BLOCK, &mask_all, &prev_mask);
-    if (waitpid(pid, &status, 0) < 0) {
-        Sio_error("Waitpid error");
+    while(fgpid(jobs) > 0) {
+        sigsuspend(&mask_all);
     }
-    sigprocmask(SIG_SETMASK, &prev_mask, NULL);
+    // sigprocmask(SIG_BLOCK, &mask_all, &prev_mask);
+    // if (waitpid(pid, &status, 0) < 0) {
+    //     Sio_error("Waitpid error");
+    // }
+    // sigprocmask(SIG_SETMASK, &prev_mask, NULL);
     return;
 }
 
@@ -334,7 +350,7 @@ void sigchld_handler(int sig)
         sigprocmask(SIG_SETMASK, &prev_mask, NULL);
     }
     if (errno != ECHILD) {
-        Sio_error("Waitpid error");
+        unix_error("Waitpid error");
     }
     errno = olderrno;
     return;
@@ -347,10 +363,14 @@ void sigchld_handler(int sig)
  */
 void sigint_handler(int sig) 
 {
+    printf("receive sigint");
     int olderrno = errno;
     pid_t pid = fgpid(jobs);
-    if (kill(pid, SIGINT) < 0) {
-        Sio_error("Kill error");
+    printf("pid: %d\n", pid);
+    if (pid != 0) {
+        if (kill(-pid, sig) < 0) {
+            unix_error("Kill error");
+        }
     }
     errno = olderrno;
     return;
@@ -365,8 +385,8 @@ void sigtstp_handler(int sig)
 {
     int olderrno = errno;
     pid_t pid = fgpid(jobs);
-    if (kill(pid, SIGTSTP) < 0){
-        Sio_error("Kill error");
+    if (kill(-pid, SIGTSTP) < 0){
+        unix_error("Kill error");
     }
     errno = olderrno;
     return;
@@ -605,48 +625,48 @@ pid_t Fork() {
 /* Public Sio functions */
 /* $begin siopublic */
 
-ssize_t sio_puts(char s[]) /* Put string */
-{
-    return write(STDOUT_FILENO, s, sio_strlen(s)); //line:csapp:siostrlen
-}
+// ssize_t sio_puts(char s[]) /* Put string */
+// {
+//     return write(STDOUT_FILENO, s, sio_strlen(s)); //line:csapp:siostrlen
+// }
 
-ssize_t sio_putl(long v) /* Put long */
-{
-    char s[128];
+// ssize_t sio_putl(long v) /* Put long */
+// {
+//     char s[128];
     
-    sio_ltoa(v, s, 10); /* Based on K&R itoa() */  //line:csapp:sioltoa
-    return sio_puts(s);
-}
+//     sio_ltoa(v, s, 10); /* Based on K&R itoa() */  //line:csapp:sioltoa
+//     return sio_puts(s);
+// }
 
-void sio_error(char s[]) /* Put error message and exit */
-{
-    sio_puts(s);
-    _exit(1);                                      //line:csapp:sioexit
-}
-/* $end siopublic */
+// void sio_error(char s[]) /* Put error message and exit */
+// {
+//     sio_puts(s);
+//     _exit(1);                                      //line:csapp:sioexit
+// }
+// /* $end siopublic */
 
-/*******************************
- * Wrappers for the SIO routines
- ******************************/
-ssize_t Sio_putl(long v)
-{
-    ssize_t n;
+// /*******************************
+//  * Wrappers for the SIO routines
+//  ******************************/
+// ssize_t Sio_putl(long v)
+// {
+//     ssize_t n;
   
-    if ((n = sio_putl(v)) < 0)
-	sio_error("Sio_putl error");
-    return n;
-}
+//     if ((n = sio_putl(v)) < 0)
+// 	sio_error("Sio_putl error");
+//     return n;
+// }
 
-ssize_t Sio_puts(char s[])
-{
-    ssize_t n;
+// ssize_t Sio_puts(char s[])
+// {
+//     ssize_t n;
   
-    if ((n = sio_puts(s)) < 0)
-	sio_error("Sio_puts error");
-    return n;
-}
+//     if ((n = sio_puts(s)) < 0)
+// 	sio_error("Sio_puts error");
+//     return n;
+// }
 
-void Sio_error(char s[])
-{
-    sio_error(s);
-}
+// void Sio_error(char s[])
+// {
+//     sio_error(s);
+// }
