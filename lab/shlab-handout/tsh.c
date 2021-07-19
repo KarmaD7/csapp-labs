@@ -41,7 +41,6 @@ char prompt[] = "tsh> ";    /* command line prompt (DO NOT CHANGE) */
 int verbose = 0;            /* if true, print additional output */
 int nextjid = 1;            /* next job ID to allocate */
 char sbuf[MAXLINE];         /* for composing sprintf messages */
-pid_t wait_pid = 0;
 
 struct job_t {              /* The job struct */
     pid_t pid;              /* job PID */
@@ -204,14 +203,13 @@ void eval(char *cmdline)
             sigprocmask(SIG_SETMASK, &prev_mask, NULL);
 
             if (!bg) {
-                printf("waitfg.\n");
                 waitfg(pid);
                 // int status;
                 // if (waitpid(pid, &status, 0) < 0) {
                 //     unix_error("Waitpid error");
                 // }
             } else {
-                printf("\[%d] %d %s", nextjid - 1, pid, cmdline);
+                printf("\[%d] (%d) %s", nextjid - 1, pid, cmdline);
             }
         }
     }
@@ -320,11 +318,7 @@ void waitfg(pid_t pid)
     while(fgpid(jobs) > 0) {
         sigsuspend(&prev_mask);
     }
-    // sigprocmask(SIG_BLOCK, &mask_all, &prev_mask);
-    // if (waitpid(pid, &status, 0) < 0) {
-    //     Sio_error("Waitpid error");
-    // }
-    // sigprocmask(SIG_SETMASK, &prev_mask, NULL);
+    // printf("wait\n");
     return;
 }
 
@@ -339,16 +333,39 @@ void waitfg(pid_t pid)
  *     available zombie children, but doesn't wait for any other
  *     currently running children to terminate.  
  */
+// void sigchld_handler(int sig) 
+// {
+//     作者：周小伦
+// 链接：https://zhuanlan.zhihu.com/p/343064110
+// 来源：知乎
+// 著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。
+
 void sigchld_handler(int sig) 
 {
     int olderrno = errno;
+    int status;
     pid_t pid;
     sigset_t mask_all, prev_mask;
     sigfillset(&mask_all);
-    while((pid = waitpid(-1, NULL, WNOHANG | WUNTRACED)) > 0) {
-        sigprocmask(SIG_BLOCK, &mask_all, &prev_mask);
-        deletejob(jobs, pid);
-        sigprocmask(SIG_SETMASK, &prev_mask, NULL);
+    while((pid = waitpid(-1, &status, WNOHANG | WUNTRACED)) > 0) {
+        if (WIFEXITED(status)) {
+            sigprocmask(SIG_BLOCK, &mask_all, &prev_mask);
+            deletejob(jobs, pid);
+            sigprocmask(SIG_SETMASK, &prev_mask, NULL);
+        } else if (WIFSIGNALED(status)) {
+            printf("sig\n");
+            sigprocmask(SIG_BLOCK, &mask_all, &prev_mask);
+            printf("Job \[%d] (%d) terminated by signal %d\n", pid2jid(pid), pid, WTERMSIG(status));
+            deletejob(jobs, pid);
+            sigprocmask(SIG_SETMASK, &prev_mask, NULL);
+        } else {
+            sigprocmask(SIG_BLOCK, &mask_all, &prev_mask);
+            struct job_t* job = getjobpid(jobs, pid);
+            printf("Job \[%d] (%d) terminated by signal %d\n", job->jid, pid, WSTOPSIG(status));
+            job->state = ST;
+            sigprocmask(SIG_SETMASK, &prev_mask, NULL);
+            // fprintf(stderr, "here2");
+        }
     }
     // if (errno != SUCCE) {
     //     unix_error("Waitpid error");
@@ -364,10 +381,10 @@ void sigchld_handler(int sig)
  */
 void sigint_handler(int sig) 
 {
-    printf("receive sigint");
+    // printf("receive sigint");
     int olderrno = errno;
     pid_t pid = fgpid(jobs);
-    printf("pid: %d\n", pid);
+    // printf("pid: %d\n", pid);
     if (pid != 0) {
         if (kill(-pid, sig) < 0) {
             unix_error("Kill error");
@@ -384,10 +401,18 @@ void sigint_handler(int sig)
  */
 void sigtstp_handler(int sig) 
 {
+    printf("tstp\n");
     int olderrno = errno;
     pid_t pid = fgpid(jobs);
-    if (kill(-pid, SIGTSTP) < 0){
-        unix_error("Kill error");
+    if (pid != 0) {
+        // sigset_t mask_all, prev_mask;
+        // sigfillset(&mask_all);
+        // sigprocmask(SIG_BLOCK, &mask_all, &prev_mask);
+        // jobs[pid2jid(pid)].state = ST;
+        if (kill(-pid, sig) < 0){
+            unix_error("Kill error");
+        }
+        // sigprocmask(SIG_SETMASK, &prev_mask, NULL);
     }
     errno = olderrno;
     return;
