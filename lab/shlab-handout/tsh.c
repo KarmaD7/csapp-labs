@@ -204,6 +204,7 @@ void eval(char *cmdline)
             sigprocmask(SIG_SETMASK, &prev_mask, NULL);
 
             if (!bg) {
+                printf("waitfg.\n");
                 waitfg(pid);
                 // int status;
                 // if (waitpid(pid, &status, 0) < 0) {
@@ -309,15 +310,15 @@ void do_bgfg(char **argv)
 void waitfg(pid_t pid)
 {
     // int status;
-    sigset_t mask_all;
-    sigfillset(&mask_all);
-    // sigemptyset(&mask_child);
+    sigset_t prev_mask;
+    // sigprocmask(SIG_BLOCK, NULL, &prev_mask);
+    sigemptyset(&prev_mask);
     // sigaddset(&mask_child, SIGCHLD);
     // sigprocmask()
     // sigsetmask();
 // ÷
     while(fgpid(jobs) > 0) {
-        sigsuspend(&mask_all);
+        sigsuspend(&prev_mask);
     }
     // sigprocmask(SIG_BLOCK, &mask_all, &prev_mask);
     // if (waitpid(pid, &status, 0) < 0) {
@@ -344,14 +345,14 @@ void sigchld_handler(int sig)
     pid_t pid;
     sigset_t mask_all, prev_mask;
     sigfillset(&mask_all);
-    while((pid = waitpid(-1, NULL, 0)) < 0) {
+    while((pid = waitpid(-1, NULL, WNOHANG | WUNTRACED)) > 0) {
         sigprocmask(SIG_BLOCK, &mask_all, &prev_mask);
         deletejob(jobs, pid);
         sigprocmask(SIG_SETMASK, &prev_mask, NULL);
     }
-    if (errno != ECHILD) {
-        unix_error("Waitpid error");
-    }
+    // if (errno != SUCCE) {
+    //     unix_error("Waitpid error");
+    // }
     errno = olderrno;
     return;
 }
