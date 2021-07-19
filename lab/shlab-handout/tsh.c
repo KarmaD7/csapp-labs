@@ -297,8 +297,23 @@ int builtin_cmd(char **argv)
  */
 void do_bgfg(char **argv) 
 {
+    char* id = argv[1];
+    pid_t pid;
+    if (id == NULL) {
+        return;
+    }
+    if (id[0] == '%') {
+        id = &id[1];
+        pid = getjobjid(jobs, atoi(id))->pid;
+    } else pid = atoi(id);
+    if (kill(pid, SIGCONT) < 0) {
+        unix_error("Kill error");
+        exit(1);
+    }
     int opt = argv[0][0] == 'f' ? FG : BG;
-    // todo
+    struct job_t* job = getjobpid(jobs, pid);
+    job->state = opt;
+    printf("\[%d] (%d) %s", job->jid, job->pid, job->cmdline);
     return;
 }
 
@@ -333,12 +348,6 @@ void waitfg(pid_t pid)
  *     available zombie children, but doesn't wait for any other
  *     currently running children to terminate.  
  */
-// void sigchld_handler(int sig) 
-// {
-//     作者：周小伦
-// 链接：https://zhuanlan.zhihu.com/p/343064110
-// 来源：知乎
-// 著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。
 
 void sigchld_handler(int sig) 
 {
@@ -353,7 +362,6 @@ void sigchld_handler(int sig)
             deletejob(jobs, pid);
             sigprocmask(SIG_SETMASK, &prev_mask, NULL);
         } else if (WIFSIGNALED(status)) {
-            printf("sig\n");
             sigprocmask(SIG_BLOCK, &mask_all, &prev_mask);
             printf("Job \[%d] (%d) terminated by signal %d\n", pid2jid(pid), pid, WTERMSIG(status));
             deletejob(jobs, pid);
@@ -401,7 +409,7 @@ void sigint_handler(int sig)
  */
 void sigtstp_handler(int sig) 
 {
-    printf("tstp\n");
+    // printf("tstp\n");
     int olderrno = errno;
     pid_t pid = fgpid(jobs);
     if (pid != 0) {
