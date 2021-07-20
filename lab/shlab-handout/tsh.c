@@ -283,7 +283,7 @@ int builtin_cmd(char **argv)
         exit(0);
         return 1;
     } else if (!strcmp(argv[0], "jobs")) {
-        listjobs(jobs); // todo
+        listjobs(jobs); 
         return 1;
     } else if (!strcmp(argv[0], "fg") || !strcmp(argv[0], "bg")) {
         do_bgfg(argv);
@@ -297,23 +297,35 @@ int builtin_cmd(char **argv)
  */
 void do_bgfg(char **argv) 
 {
-    char* id = argv[1];
-    pid_t pid;
-    if (id == NULL) {
+    int id;
+    struct job_t* job;
+    if (argv[1] == NULL) {
+        printf("fg command requires PID or %%jobid argument\n");
         return;
     }
-    if (id[0] == '%') {
-        id = &id[1];
-        pid = getjobjid(jobs, atoi(id))->pid;
-    } else pid = atoi(id);
-    if (kill(pid, SIGCONT) < 0) {
+    if (sscanf(argv[1], "%%%d", &id) > 0) {
+        job = getjobjid(jobs, id);
+        if (job == NULL) {
+            printf("%s: No such job\n", argv[1]);
+            return;
+        }
+    } else if (sscanf(argv[1], "%d", &id) > 0) {
+        job = getjobpid(jobs, id);
+        if (job == NULL) {
+            printf("(%s): No such process\n", argv[1]);
+            return;
+        }
+    } else {
+        printf("bg: argument must be a PID or %%jobid\n");
+        return;
+    }
+    if (kill(-job->pid, SIGCONT) < 0) {
         unix_error("Kill error");
         exit(1);
     }
     int opt = argv[0][0] == 'f' ? FG : BG;
-    struct job_t* job = getjobpid(jobs, pid);
     job->state = opt;
-    printf("\[%d] (%d) %s", job->jid, job->pid, job->cmdline);
+    opt == BG ? printf("\[%d] (%d) %s", job->jid, job->pid, job->cmdline) : waitfg(job->pid);
     return;
 }
 
@@ -369,7 +381,7 @@ void sigchld_handler(int sig)
         } else {
             sigprocmask(SIG_BLOCK, &mask_all, &prev_mask);
             struct job_t* job = getjobpid(jobs, pid);
-            printf("Job \[%d] (%d) terminated by signal %d\n", job->jid, pid, WSTOPSIG(status));
+            printf("Job \[%d] (%d) stopped by signal %d\n", job->jid, pid, WSTOPSIG(status));
             job->state = ST;
             sigprocmask(SIG_SETMASK, &prev_mask, NULL);
             // fprintf(stderr, "here2");
