@@ -22,9 +22,9 @@ CMU15-213课程的编程作业，教材为《深入理解计算机系统》。
 - [x] Lecture 14  ECF: Exceptions & Processes
 - [x] Lecture 15  ECF: Signals
 - [x] Lecture 16  System Level IO
-- [ ] Lecture 17  Virtual Memory: Concepts
-- [ ] Lecture 18  Virtual Memory: Systems
-- [ ] Lecture 19  Storage Allocation: Basic
+- [x] Lecture 17  Virtual Memory: Concepts
+- [x] Lecture 18  Virtual Memory: Systems
+- [x] Lecture 19  Storage Allocation: Basic
 - [ ] Lecture 20  Storage Allocation: Advanced
 - [ ] Lecture 21  Network Programming: Part I
 - [ ] Lecture 22  Network Programming: Part I
