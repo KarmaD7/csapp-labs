@@ -195,7 +195,7 @@ void eval(char *cmdline)
             }
             if (execve(argv[0], argv, environ) < 0) {
                 printf("%s: Command not found.\n", argv[0]);
-                return;
+                exit(1);
             }
         } else {
             sigprocmask(SIG_BLOCK, &mask_all, NULL);
@@ -716,3 +716,5 @@ pid_t Fork() {
 // {
 //     sio_error(s);
 // }
+
+
