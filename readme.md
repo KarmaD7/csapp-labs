@@ -25,7 +25,7 @@ CMU15-213课程的编程作业，教材为《深入理解计算机系统》。
 - [x] Lecture 17  Virtual Memory: Concepts
 - [x] Lecture 18  Virtual Memory: Systems
 - [x] Lecture 19  Storage Allocation: Basic
-- [ ] Lecture 20  Storage Allocation: Advanced
+- [x] Lecture 20  Storage Allocation: Advanced
 - [ ] Lecture 21  Network Programming: Part I
 - [ ] Lecture 22  Network Programming: Part I
 - [ ] Lecture 23  Concurrent Programming
