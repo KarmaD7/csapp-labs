@@ -61,12 +61,14 @@ team_t team = {
 #define HDRP(bp) ((char *)(bp) - WSIZE)
 #define FTRP(bp) ((char *)(bp) + GET_SIZE(HDRP(bp)) - DSIZE)
 
-#define NEXT_BLKP(bp) ((char *)(bp) + GET_SIZE((char *)(bp) - WSIZE))
+#define NEXT_BLKP(bp) ((char *)(bp) + GET_SIZE(((char *)(bp) - WSIZE)))
 #define PREV_BLKP(bp) ((char *)(bp) - GET_SIZE((char *)(bp) - DSIZE))
 
 static char* heap_listp;
 static void* extend_heap(size_t words);
 static void* coalesce(void *bp);
+static void* find_fit(size_t asize);
+static void place(void* bp, size_t asize);
 
 /* 
  * mm_init - initialize the malloc package.
@@ -80,7 +82,10 @@ int mm_init(void)
     PUT(heap_listp + 2 * WSIZE, PACK(DSIZE, 1));
     PUT(heap_listp + 3 * WSIZE, PACK(0, 1));
     heap_listp += 2 * WSIZE;
+
+    if (extend_heap (CHUNKSIZE / WSIZE) == NULL) return -1; 
     return 0;
+
 }
 
 static void* extend_heap(size_t words) {
@@ -102,16 +107,39 @@ static void* extend_heap(size_t words) {
  * mm_malloc - Allocate a block by incrementing the brk pointer.
  *     Always allocate a block whose size is a multiple of the alignment.
  */
-void *mm_malloc(size_t size)
-{
-    int newsize = ALIGN(size + SIZE_T_SIZE);
-    void *p = mem_sbrk(newsize);
-    if (p == (void *)-1)
-	return NULL;
-    else {
-        *(size_t *)p = size;
-        return (void *)((char *)p + SIZE_T_SIZE);
+void *mm_malloc(size_t size) {
+    size_t asize;
+    char* bp; 
+
+    if (size == 0) {
+        return NULL;
     }
+
+    if (size < ALIGNMENT * 2) {
+        asize = ALIGNMENT * 2;
+    } else {
+        asize = (((size - 1) >> 3) + 1) * DSIZE;
+    }
+
+    if ((bp = find_fit(size)) != NULL) {
+        place(bp, asize);
+        return bp;
+    } 
+    
+    asize = CHUNKSIZE < asize ? CHUNKSIZE: asize;
+    if ((bp = mem_sbrk(asize)) != (char*)-1) {
+        place(bp, asize);
+        return bp;
+    }
+    return NULL;
+    // int newsize = ALIGN(size + SIZE_T_SIZE);
+    // void *p = mem_sbrk(newsize);
+    // if (p == (void *)-1)
+	// return NULL;
+    // else {
+    //     *(size_t *)p = size;
+    //     return (void *)((char *)p + SIZE_T_SIZE);
+    // }
 }
 
 /*
@@ -133,7 +161,7 @@ static void* coalesce(void *bp) {
     if (last_free && next_free) {
         ;
     } else if (last_free && !next_free) {
-
+        ;
     } else if (!last_free && next_free) {
 
     } 
@@ -142,7 +170,16 @@ static void* coalesce(void *bp) {
 }
 
 static void* find_fit(size_t asize) {
-    ;
+    char* bp = heap_listp;
+    size_t size;
+    while ((size = GET_SIZE(HDRP(bp))) > 0) {
+        if (GET_ALLOC(HDRP(bp)) == 0 && size > asize) {
+            return bp;
+        }
+        bp = NEXT_BLKP(bp);
+    }
+
+    return (void* )-1;
 }
 
 static void place(void* bp, size_t asize) {
