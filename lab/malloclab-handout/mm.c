@@ -127,7 +127,7 @@ void *mm_malloc(size_t size) {
     } 
     
     asize = CHUNKSIZE < asize ? CHUNKSIZE: asize;
-    if ((bp = mem_sbrk(asize)) != (char*)-1) {
+    if ((bp = mem_sbrk(asize / WSIZE)) != (char*)-1) {
         place(bp, asize);
         return bp;
     }
@@ -155,15 +155,21 @@ void mm_free(void *ptr)
 
 static void* coalesce(void *bp) {
     size_t size = GET_SIZE(bp);
-    size_t last_free = GET_ALLOC(PREV_BLKP(bp));
-    size_t next_free = GET_ALLOC(NEXT_BLKP(bp));
+    size_t last_alloc = GET_ALLOC(PREV_BLKP(bp));
+    size_t next_alloc = GET_ALLOC(NEXT_BLKP(bp));
 
-    if (last_free && next_free) {
-        ;
-    } else if (last_free && !next_free) {
-        ;
-    } else if (!last_free && next_free) {
-
+    if (last_alloc && next_alloc) {
+        size += (GET_SIZE(HDRP(NEXT_BLKP(bp))) + GET_SIZE(HDRP(PREV_BLKP(bp)));
+        PUT(FTRP(NEXT_BLKP(bp)), PACK(size, 0));
+        bp = PREV_BLKP(bp);
+        PUT(HDRP(bp), PACK(size, 0));
+    } else if (last_alloc && !next_alloc) {
+        size += GET_SIZE(HDRP(NEXT_BLKP(bp)));
+        PUT(FTRP(bp), PACK(size, 0));
+        bp = PREV_BLKP(bp);
+        PUT(HDRP(bp), PACK(size, 0));
+    } else if (!last_alloc && next_alloc) {
+        size += GET_SIZE(HDRP(PREV_BLKP(bp)));
     } 
 
     return bp;
@@ -183,7 +189,16 @@ static void* find_fit(size_t asize) {
 }
 
 static void place(void* bp, size_t asize) {
-    ;
+    int oldsize = GET_SIZE(HDRP(bp));
+    PUT(HDRP(bp), PACK(asize, 1));
+    PUT(FTRP(bp), PACK(asize, 1));
+    int free_size = oldsize - asize;
+    if (oldsize - asize < 10) {
+        return;
+    }
+    char* newbp = NEXT_BLKP(bp);
+    PUT(HDRP(newbp), PACK(free_size, 0));
+    PUT(FTRP(newbp), PACK(free_size, 0));
 }
 /*
  * mm_realloc - Implemented simply in terms of mm_malloc and mm_free
@@ -204,17 +219,3 @@ void *mm_realloc(void *ptr, size_t size)
     mm_free(oldptr);
     return newptr;
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
