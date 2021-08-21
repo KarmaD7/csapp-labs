@@ -159,7 +159,7 @@ static void* coalesce(void *bp) {
     size_t next_alloc = GET_ALLOC(NEXT_BLKP(bp));
 
     if (last_alloc && next_alloc) {
-        size += (GET_SIZE(HDRP(NEXT_BLKP(bp))) + GET_SIZE(HDRP(PREV_BLKP(bp)));
+        size += (GET_SIZE(HDRP(NEXT_BLKP(bp))) + GET_SIZE(HDRP(PREV_BLKP(bp))));
         PUT(FTRP(NEXT_BLKP(bp)), PACK(size, 0));
         bp = PREV_BLKP(bp);
         PUT(HDRP(bp), PACK(size, 0));
