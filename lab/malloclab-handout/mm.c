@@ -62,7 +62,7 @@ team_t team = {
 #define FTRP(bp) ((char *)(bp) + GET_SIZE(HDRP(bp)) - DSIZE)
 
 #define NEXT_BLKP(bp) ((char *)(bp) + GET_SIZE(((char *)(bp) - WSIZE)))
-#define PREV_BLKP(bp) ((char *)(bp) - GET_SIZE((char *)(bp) - DSIZE))
+#define PREV_BLKP(bp) ((char *)(bp) - GET_SIZE(((char *)(bp) - DSIZE)))
 
 static char* heap_listp;
 static void* extend_heap(size_t words);
@@ -118,7 +118,7 @@ void *mm_malloc(size_t size) {
     if (size < ALIGNMENT * 2) {
         asize = ALIGNMENT * 2;
     } else {
-        asize = (((size - 1) >> 3) + 1) * DSIZE;
+        asize = (((size - 1) >> 3) + 1) * DSIZE + DSIZE;
     }
 
     if ((bp = find_fit(size)) != NULL) {
@@ -127,7 +127,7 @@ void *mm_malloc(size_t size) {
     } 
     
     asize = CHUNKSIZE < asize ? CHUNKSIZE: asize;
-    if ((bp = mem_sbrk(asize / WSIZE)) != (char*)-1) {
+    if ((bp = extend_heap(asize / WSIZE)) != (char*)-1) {
         place(bp, asize);
         return bp;
     }
@@ -147,29 +147,31 @@ void *mm_malloc(size_t size) {
  */
 void mm_free(void *ptr)
 {
-    size_t size = GET_SIZE(ptr);
+    size_t size = GET_SIZE(HDRP(ptr));
     PUT(HDRP(ptr), PACK(size, 0));
     PUT(FTRP(ptr), PACK(size, 0));
     coalesce(ptr);
 }
 
 static void* coalesce(void *bp) {
-    size_t size = GET_SIZE(bp);
-    size_t last_alloc = GET_ALLOC(PREV_BLKP(bp));
-    size_t next_alloc = GET_ALLOC(NEXT_BLKP(bp));
+    size_t size = GET_SIZE(HDRP(bp));
+    size_t last_alloc = GET_ALLOC(HDRP(PREV_BLKP(bp)));
+    size_t next_alloc = GET_ALLOC(HDRP(NEXT_BLKP(bp)));
 
-    if (last_alloc && next_alloc) {
+    if (!last_alloc && !next_alloc) {
         size += (GET_SIZE(HDRP(NEXT_BLKP(bp))) + GET_SIZE(HDRP(PREV_BLKP(bp))));
         PUT(FTRP(NEXT_BLKP(bp)), PACK(size, 0));
         bp = PREV_BLKP(bp);
         PUT(HDRP(bp), PACK(size, 0));
-    } else if (last_alloc && !next_alloc) {
-        size += GET_SIZE(HDRP(NEXT_BLKP(bp)));
+    } else if (!last_alloc && next_alloc) {
+        size += GET_SIZE(HDRP(PREV_BLKP(bp)));
         PUT(FTRP(bp), PACK(size, 0));
         bp = PREV_BLKP(bp);
         PUT(HDRP(bp), PACK(size, 0));
-    } else if (!last_alloc && next_alloc) {
-        size += GET_SIZE(HDRP(PREV_BLKP(bp)));
+    } else if (last_alloc && !next_alloc) {
+        size += GET_SIZE(HDRP(NEXT_BLKP(bp)));
+        PUT(HDRP(bp), PACK(size, 0));
+        PUT(FTRP(bp), PACK(size, 0));
     } 
 
     return bp;
@@ -179,21 +181,21 @@ static void* find_fit(size_t asize) {
     char* bp = heap_listp;
     size_t size;
     while ((size = GET_SIZE(HDRP(bp))) > 0) {
-        if (GET_ALLOC(HDRP(bp)) == 0 && size > asize) {
+        if (GET_ALLOC(HDRP(bp)) == 0 && size >= asize) {
             return bp;
         }
         bp = NEXT_BLKP(bp);
     }
 
-    return (void* )-1;
+    return NULL;
 }
 
 static void place(void* bp, size_t asize) {
-    int oldsize = GET_SIZE(HDRP(bp));
+    size_t oldsize = GET_SIZE(HDRP(bp));
     PUT(HDRP(bp), PACK(asize, 1));
     PUT(FTRP(bp), PACK(asize, 1));
-    int free_size = oldsize - asize;
-    if (oldsize - asize < 10) {
+    size_t free_size = oldsize - asize;
+    if (free_size < 2 * ALIGNMENT) {
         return;
     }
     char* newbp = NEXT_BLKP(bp);
@@ -208,7 +210,7 @@ void *mm_realloc(void *ptr, size_t size)
     void *oldptr = ptr;
     void *newptr;
     size_t copySize;
-    
+     
     newptr = mm_malloc(size);
     if (newptr == NULL)
       return NULL;
@@ -218,4 +220,8 @@ void *mm_realloc(void *ptr, size_t size)
     memcpy(newptr, oldptr, copySize);
     mm_free(oldptr);
     return newptr;
+}
+
+void mm_check() {
+    
 }
